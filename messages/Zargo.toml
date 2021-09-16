@@ -1,0 +1,6 @@
+[project]
+name = 'messages'
+type = 'contract'
+version = '0.1.0'
+
+[dependencies]

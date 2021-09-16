@@ -7,3 +7,11 @@ src/**.js
 coverage
 *.log
 package-lock.json
+
+*/private_key
+*/target
+*/data
+messages/*
+!messages/src
+!messages/Zargo.toml
+

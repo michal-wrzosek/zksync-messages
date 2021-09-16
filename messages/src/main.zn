@@ -1,0 +1,258 @@
+//!
+//! The 'messages' contract entry.
+//!
+
+use std::collections::MTreeMap;
+
+// Zinc does not support strings so here's some hack to get around that.
+// I want to store a mapping "account handle string" => "account address".
+// The solution is to convert a string into a big number.
+// 
+// There are 36 possible characters in the account handle. Each has its own value.
+// Each character is stored in u8 (8 bits).
+// Account handle is an array of 16 characters.
+// We can represent a string of 16 characters in u128 (16 * 8 bits = 128)
+// Example string: "xfor"
+// "x" => 33 => 00100001
+// "f" => 15 => 00001111
+// "o" => 24 => 00011000
+// "r" => 27 => 00011011
+// [33, 15, 24, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+// by stacking bits one by one in front we got:
+// 00011011_00011000_00001111_00100001 (r_o_f_x)
+// and the remaining 12 chars (16 - 4 = 12) that we did not used are set to "0":
+// 00000000_00000000_00000000_00000000
+// 00000000_00000000_00000000_00000000
+// 00000000_00000000_00000000_00000000
+// 00011011_00011000_00001111_00100001
+// 
+// Account handle char codes:
+// 
+// 0: 0
+// 1: 1
+// 2: 2
+// 3: 3
+// 4: 4
+// 5: 5
+// 6: 6
+// 7: 7
+// 8: 8
+// 9: 9
+// 10: a
+// 11: b
+// 12: c
+// 13:d
+// 14: e
+// 15: f
+// 16: g
+// 17: h
+// 18: i
+// 19: j
+// 20: k
+// 21: l
+// 22: m
+// 23: n
+// 24: o
+// 25: p
+// 26: q
+// 27: r
+// 28: s
+// 29: t
+// 30: u
+// 31: v
+// 32: w
+// 33: x
+// 34: y
+// 35: z
+
+// Chars can have value from 0 to 35
+const HANDLE_CHAR_MAX_VALUE: u8 = 35;
+
+// Handle consists of 16 chars
+const HANDLE_MAX_CHAR: u8 = 16;
+
+const NAME_MAX_CHAR: u8 = 32;
+const BIO_MAX_CHAR: u16 = 256;
+const MESSAGE_MAX_CHARS: u16 = 256;
+const MESSAGES_MAX: u16 = 1024;
+
+type ASCIICharacter = u8;
+type UTF8Character = u32;
+type MessageTimestamp = u32;
+type AccountAddress = u160;
+type AccountHandleBinary = u128;
+type AccountHandle = [ASCIICharacter; HANDLE_MAX_CHAR];
+type AccountName = [UTF8Character; NAME_MAX_CHAR];
+type AccountBio = [UTF8Character; BIO_MAX_CHAR];
+type MessageText = [UTF8Character; MESSAGE_MAX_CHARS];
+
+struct Message {
+    text: MessageText,
+    timestamp: MessageTimestamp,
+    set: bool,
+}
+
+type Messages = [Message; MESSAGES_MAX];
+
+struct AccountData {
+    messages: Messages,
+    handle: AccountHandle,
+    name: AccountName,
+    bio: AccountBio,
+}
+
+fn _account_handle_to_binary(account_handle: AccountHandle) -> AccountHandleBinary {
+    let mut account_handle_binary: AccountHandleBinary = 0;
+
+    account_handle_binary += account_handle[0] as u128 << (8 * 0);
+    account_handle_binary += account_handle[1] as u128 << (8 * 1);
+    account_handle_binary += account_handle[2] as u128 << (8 * 2);
+    account_handle_binary += account_handle[3] as u128 << (8 * 3);
+    account_handle_binary += account_handle[4] as u128 << (8 * 4);
+    account_handle_binary += account_handle[5] as u128 << (8 * 5);
+    account_handle_binary += account_handle[6] as u128 << (8 * 6);
+    account_handle_binary += account_handle[7] as u128 << (8 * 7);
+    account_handle_binary += account_handle[8] as u128 << (8 * 8);
+    account_handle_binary += account_handle[9] as u128 << (8 * 9);
+    account_handle_binary += account_handle[10] as u128 << (8 * 10);
+    account_handle_binary += account_handle[11] as u128 << (8 * 11);
+    account_handle_binary += account_handle[12] as u128 << (8 * 12);
+    account_handle_binary += account_handle[13] as u128 << (8 * 13);
+    account_handle_binary += account_handle[14] as u128 << (8 * 14);
+    account_handle_binary += account_handle[15] as u128 << (8 * 15);
+
+    account_handle_binary
+}
+
+contract MessagesContract {
+    pub accounts_data: MTreeMap<AccountAddress, AccountData>;
+    pub handle_to_account_address: MTreeMap<AccountHandleBinary, AccountAddress>;
+
+    pub fn new() -> Self {
+        Self {
+            accounts_data: MTreeMap,
+            handle_to_account_address: MTreeMap,
+        }
+    }
+
+    pub fn create_account(
+        mut self,
+        account_handle: AccountHandle,
+        account_name: AccountName,
+        account_bio: AccountBio,
+    ) -> AccountData {
+        require(self.accounts_data.contains(zksync::msg.sender) == false, "account of this address already exists");
+
+        require(
+            account_handle[0] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[1] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[2] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[3] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[4] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[5] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[6] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[7] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[8] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[9] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[10] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[11] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[12] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[13] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[14] <= HANDLE_CHAR_MAX_VALUE &&
+            account_handle[15] <= HANDLE_CHAR_MAX_VALUE,
+            "account handle chars max value exceeded"
+        );
+
+        let account_handle_binary = _account_handle_to_binary(account_handle);
+
+        require(self.handle_to_account_address.contains(account_handle_binary) == false, "handle already exists");
+
+        self.handle_to_account_address.insert(account_handle_binary, zksync::msg.sender);
+
+        let account_data = AccountData {
+            messages: [Message {
+                text: [0 as UTF8Character; MESSAGE_MAX_CHARS],
+                timestamp: 0 as MessageTimestamp,
+                set: false,
+            }; MESSAGES_MAX],
+            handle: account_handle,
+            name: account_name,
+            bio: account_bio,
+        };
+
+        self.accounts_data.insert(zksync::msg.sender, account_data);
+
+        account_data
+    }
+
+    pub fn update_account(
+        mut self,
+        account_name: AccountName,
+        account_bio: AccountBio,
+    ) -> AccountData {
+        require(self.accounts_data.contains(zksync::msg.sender), "account of this address does not exist");
+
+        let (mut account_data, _) = self.accounts_data.get(zksync::msg.sender);
+        account_data.name = account_name;
+        account_data.bio = account_bio;
+
+        account_data
+    }
+
+    pub fn post_message(
+        mut self,
+        message_text: MessageText,
+        message_timestamp: MessageTimestamp,
+    ) -> AccountData {
+        require(self.accounts_data.contains(zksync::msg.sender), "account of this address does not exist");
+
+        let (mut account_data, _) = self.accounts_data.get(zksync::msg.sender);
+
+        // shifting messages by one to make a place for new message
+        const START_INDEX: u16 = MESSAGES_MAX - 2;
+        for index in START_INDEX..=0 while true {
+            account_data.messages[index + 1] = account_data.messages[index];
+        }
+
+        // TODO: Figure out how to get some timestamp in Zinc
+        account_data.messages[0] = Message {
+            text: message_text,
+            timestamp: message_timestamp,
+            set: true,
+        };
+
+        account_data
+    }
+
+    pub fn get_account_data_by_handle(
+        self,
+        account_handle: AccountHandle,
+    ) -> AccountData {
+        let account_handle_binary = _account_handle_to_binary(account_handle);
+
+        require(
+            self.handle_to_account_address.contains(account_handle_binary) == true,
+            "account handle does not exists",
+        );
+
+        let (account_address, _) = self.handle_to_account_address.get(account_handle_binary);
+        
+        let (account_data, _) = self.accounts_data.get(account_address);
+
+        account_data
+    }
+
+    pub fn get_account_data_by_address(
+        self,
+        account_address: AccountAddress,
+    ) -> AccountData {
+        require(
+            self.accounts_data.contains(account_address) == true,
+            "account handle does not exists",
+        );
+        
+        let (account_data, _) = self.accounts_data.get(account_address);
+
+        account_data
+    }
+}

@@ -8,6 +8,11 @@
   "repository": "https://github.com/michal-wrzosek/zksync-messages",
   "license": "MIT",
   "keywords": [],
+  "author": {
+    "name": "Michal Wrzosek",
+    "email": "michal@wrzosek.pl",
+    "url": "https://michal.wrzosek.pl"
+  },
   "scripts": {
     "build": "run-p build:*",
     "build:main": "tsc -p tsconfig.json",
